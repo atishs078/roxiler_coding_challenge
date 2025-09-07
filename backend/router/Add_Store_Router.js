@@ -179,7 +179,28 @@ router.get('/averageRating/:storeID', verifyJWT, isStoreOwner, async (req, res) 
     return res.status(500).json({ success: false, msg: "Internal Server Error" });
   }
 });
+router.get('/getStoreByEmail/:email', async (req, res) => {
+  const { email } = req.params;
 
+  if (!email) {
+    return res.status(400).json({ success: false, msg: "Please provide email" });
+  }
 
+  try {
+    const [store] = await req.db.query(
+      "SELECT * FROM stores WHERE email = ?",
+      [email]
+    );
+
+    if (store.length === 0) {
+      return res.status(404).json({ success: false, msg: "No store found with this email" });
+    }
+
+    return res.status(200).json({ success: true, store: store[0] });
+  } catch (error) {
+    console.error("Error fetching store by email:", error);
+    return res.status(500).json({ success: false, msg: "Error fetching store" });
+  }
+});
 
 module.exports = router;

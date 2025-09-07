@@ -1,4 +1,3 @@
-// src/Storeowner_landing.jsx
 import React, { useEffect, useState } from "react";
 import { jwtDecode } from "jwt-decode";
 import { useNavigate } from "react-router-dom";
@@ -17,49 +16,71 @@ const Storeownerlanding = () => {
   const [newPassword, setNewPassword] = useState("");
   const [userId, setUserId] = useState(null);
   const [rate, setrate] = useState(0);
-  const [userList, setUserList] = useState([])
-  const [showStoreTable, setStoreTable] = useState(true)
- 
-  const navigate = useNavigate();
- useEffect(() => {
-    if (token) {
-      try {
-        const decoded = jwtDecode(token);
-        fetchNumberOfRating(decoded.id)
-        fetchAvgRating(decoded.id)
-        fetchUserList(decoded.id)
-      } catch (error) {
+  const [userList, setUserList] = useState([]);
+  const [showStoreTable, setStoreTable] = useState(true);
 
-        console.error("Invalid token:", error);
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    const initializeDashboard = async () => {
+      if (token) {
+        try {
+          setLoading(true);
+          const decoded = jwtDecode(token);
+
+          setUserId(decoded.email);
+          fetchPasswordUpdate(decoded.email);
+
+          await getStoreDetails(decoded.email);
+
+          const storeId = localStorage.getItem("storeID");
+
+          if (storeId) {
+            fetchNumberOfRating(storeId);
+            fetchAvgRating(storeId);
+            fetchUserList(storeId);
+          } else {
+            console.error("Could not retrieve store ID.");
+          }
+        } catch (error) {
+          console.error("Invalid token or initialization error:", error);
+          localStorage.removeItem("token");
+          navigate("/");
+        } finally {
+          setLoading(false);
+        }
+      } else {
+        navigate("/");
       }
-    }else{
-      navigate('/')
-    }
+    };
+
+    initializeDashboard();
   }, [token]);
 
-  // Fetch store info to check if password is updated
   const fetchUserList = async (storeId) => {
     try {
-      const response = await fetch(`http://localhost:5000/api/getUsersWhoRated/${storeId}`,{
-        method:'GET',
-        headers:{
-          "Content-Type": "application/json",
+      const response = await fetch(
+        `http://localhost:5000/api/getUsersWhoRated/${storeId}`,
+        {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
             Authorization: `Bearer ${token}`,
-        },
-      })
-      const data = await response.json()
-      if(data.success){
-        setUserList(data.rates)
-        console.log(data.rates)
-      }else{
-        alert("Something went wrong")
+          },
+        }
+      );
+      const data = await response.json();
+      if (data.success) {
+        setUserList(data.rates);
+        console.log(data.rates);
+      } else {
+        alert("Something went wrong");
       }
     } catch (error) {
-      alert("Something went wrong")
-      
+      alert("Something went wrong");
     }
-    
-  }
+  };
+
   const fetchPasswordUpdate = async (storeEmail) => {
     try {
       const response = await fetch(
@@ -72,9 +93,7 @@ const Storeownerlanding = () => {
           },
         }
       );
-
       const data = await response.json();
-
       if (data.success) {
         const isPasswordUpdated = data.store.ispasswordupdated;
         if (isPasswordUpdated === 0) {
@@ -92,63 +111,67 @@ const Storeownerlanding = () => {
       console.error("Fetch error:", error);
     }
   };
+
   const fetchNumberOfRating = async (storeId) => {
-    const response = await fetch(`http://localhost:5000/api/getRatingCountByStore/${storeId}`,{
-      method:'GET',
-      headers:{
-        'content-type':'application/json',
-        Authorization: `Bearer ${token}`,
+    const response = await fetch(
+      `http://localhost:5000/api/getRatingCountByStore/${storeId}`,
+      {
+        method: "GET",
+        headers: {
+          "content-type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
       }
-    })
+    );
     const data = await response.json();
-    if(data.success){
-      setrate(data.getStoreCount)
-      console.log(data.getStoreCount)
-    }else{
-      alert(data.msg)
-    }
-    
-    
-  }
-  const fetchAvgRating = async (storeId) => {
-    const response = await fetch(`http://localhost:5000/api/averageRating/${storeId}`,{
-      method:'GET',
-      headers:{
-        'content-type':'application/json',
-        Authorization: `Bearer ${token}`,
-      }
-    })
-    const data = await response.json();
-    if(data.success){
-      setAverageRating(data.averageRating)
-
-    }else{
-      alert(data.msg)
-    }
-    
-  }
-
-  useEffect(() => {
-    if (token) {
-      try {
-        const decoded = jwtDecode(token);
-        setUserId(decoded.email);
-        fetchPasswordUpdate(decoded.email);
-      } catch (error) {
-        console.error("Invalid token:", error);
-      }
+    if (data.success) {
+      setrate(data.getStoreCount);
+      console.log(data.getStoreCount);
     } else {
-      navigate("/");
+      alert(data.msg);
     }
+  };
+
+  const getStoreDetails = async (email) => {
+  const response = await fetch(
+    `http://localhost:5000/api/getStoreByEmail/${email}`,
+    {
+      method: "GET",
+      headers: {
+        "content-type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+    }
+  );
+  const data = await response.json();
+  if (data.success && data.store) {
+    console.log(data.store.id);
+    localStorage.setItem("storeID", data.store.id);  // ✅ FIXED
+  } else {
+    console.log("wail");
+  }
+};
 
 
-    
-    
-    
-    setLoading(false);
-  }, [token]);
+  const fetchAvgRating = async (storeId) => {
+    const response = await fetch(
+      `http://localhost:5000/api/averageRating/${storeId}`,
+      {
+        method: "GET",
+        headers: {
+          "content-type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
+    const data = await response.json();
+    if (data.success) {
+      setAverageRating(data.averageRating);
+    } else {
+      alert(data.msg);
+    }
+  };
 
-  // Apply filters + search
   const filteredRatings =
     filter === "all"
       ? ratings
@@ -169,10 +192,8 @@ const Storeownerlanding = () => {
     );
   }
 
-  // Handle password update form
   const handleUpdatePassword = async (e) => {
     e.preventDefault();
-
     try {
       const res = await fetch(
         `http://localhost:5000/api/updatepass/${userId}`,
@@ -182,10 +203,12 @@ const Storeownerlanding = () => {
             "Content-Type": "application/json",
             Authorization: `Bearer ${token}`,
           },
-          body: JSON.stringify({ password:oldPassword, changedPassword:newPassword }),
+          body: JSON.stringify({
+            password: oldPassword,
+            changedPassword: newPassword,
+          }),
         }
       );
-
       const data = await res.json();
       if (data.success) {
         Swal.fire({
@@ -217,15 +240,13 @@ const Storeownerlanding = () => {
 
   return (
     <>
-      {/* Navbar */}
       <nav className="bg-white shadow px-6 py-3 flex justify-between items-center">
         <span className="text-lg font-semibold">Store Owner Dashboard</span>
         <div className="flex gap-3">
-          
           <button
             onClick={() => {
               localStorage.removeItem("token");
-             navigate('/');
+              navigate("/");
             }}
             className="px-4 py-2 border border-red-500 text-red-500 rounded-lg hover:bg-red-50 transition"
           >
@@ -235,7 +256,6 @@ const Storeownerlanding = () => {
       </nav>
 
       <div className="p-6 max-w-6xl mx-auto">
-        {/* Summary Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
           <div className="bg-white shadow rounded-xl p-6 text-center">
             <h5 className="text-gray-700 font-medium mb-2 flex items-center justify-center gap-2">
@@ -253,25 +273,23 @@ const Storeownerlanding = () => {
           </div>
         </div>
 
-        {/* Ratings Table */}
-        <div className='p-6'>
+        <div className="p-6">
           {showStoreTable && (
             <Table
               columns={[
-                { key: 'id', label: 'ID' },
-                { key: 'name', label: 'Name' },
-                { key: 'email', label: 'Email' },
-                { key: 'rating', label: 'Rating' }
+                { key: "id", label: "ID" },
+                { key: "name", label: "Name" },
+                { key: "email", label: "Email" },
+                { key: "rating", label: "Rating" },
               ]}
               data={userList}
-              filterKeys={['name', 'email', 'rating']}
-              emptyMessage='No Rating Available'
+              filterKeys={["name", "email", "rating"]}
+              emptyMessage="No Rating Available"
             />
           )}
         </div>
       </div>
 
-      {/* Update Password Modal */}
       {showModal && (
         <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
           <div className="bg-white w-full max-w-md rounded-xl shadow-lg p-6">
